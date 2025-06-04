@@ -1,0 +1,108 @@
+import os
+import random
+import datetime
+import tkinter as tk
+from tkinter import simpledialog, messagebox, scrolledtext
+
+DIARIO_NOME = "diario.txt"
+
+def talvez_fumo():#isso aqui é engraçado, serve pra aleatorizar a palavra "fumo" aí ela aparece de vez em quando quando eu chamar a função
+    return " fumo~" if random.choice([True, False]) else "fumofumo"
+
+def fumo_face():#mesma coisa só que com as carinhas
+    return random.choice(["ᗜˬᗜ", "ദ്ദി ᗜˬᗜ✧", "ᗜ˰ᗜ"])
+
+def obter_data_hora():
+    agora = datetime.datetime.now()
+    return agora.strftime("%d/%m/%Y %H:%M:%S")
+
+def criar_diario():
+    if os.path.exists(DIARIO_NOME):
+        messagebox.showinfo("Info", f"O diário já existe. {fumo_face()}{talvez_fumo()}")
+    else:
+        with open(DIARIO_NOME, "w", encoding="utf-8") as f:
+            f.write(f"== Diário iniciado em {obter_data_hora()} ==\n")
+        messagebox.showinfo("Sucesso", f"Diário criado com sucesso! {fumo_face()}{talvez_fumo()}")
+
+def adicionar_entrada():
+    if not os.path.exists(DIARIO_NOME):
+        messagebox.showerror("Erro", f"O diário não existe, bananão... {fumo_face()}{talvez_fumo()}")
+        return
+    entrada = simpledialog.askstring("Nova Entrada", "O que deseja escrever?")
+    if entrada:
+        with open(DIARIO_NOME, "a", encoding="utf-8") as f:
+            f.write(f"[{obter_data_hora()}] {entrada}\n")
+        messagebox.showinfo("Salvo", f"Entrada anotada... {fumo_face()}{talvez_fumo()}")
+
+def ler_diario():
+    if not os.path.exists(DIARIO_NOME):
+        messagebox.showerror("Erro", f"O diário não existe, burrão... {fumo_face()}{talvez_fumo()}")
+        return
+    with open(DIARIO_NOME, "r", encoding="utf-8") as f:
+        conteudo = f.read()
+    janela_leitura = tk.Toplevel(root)
+    janela_leitura.title(f"Diário Fumo {fumo_face()}")
+    texto = scrolledtext.ScrolledText(janela_leitura, wrap=tk.WORD, width=60, height=20)
+    texto.insert(tk.END, conteudo)
+    texto.config(state=tk.DISABLED)
+    texto.pack(padx=10, pady=10)
+
+def excluir_diario():
+    if os.path.exists(DIARIO_NOME):
+        confirmacao = messagebox.askyesno("Confirmação", f"Deletar o diário? {fumo_face()}{talvez_fumo()}")
+        if confirmacao:
+            os.remove(DIARIO_NOME)
+            messagebox.showinfo("Deletado", f"Diário deletado com sucesso. {fumo_face()}")
+    else:
+        messagebox.showerror("Erro", f"Nada pra deletar! {fumo_face()}{talvez_fumo()}")
+
+def mostrar_splash(): # a animação do inicio
+    splash = tk.Toplevel() #vai criar uma nova janela
+    splash.overrideredirect(True) #isso aqui serve pra retirar os botões e titulos da janela
+    splash.geometry("400x200+500+300") #os 400x200 é o tamanho da janela, e o +500+300 é a posição onde ele vai aparecer
+    label = tk.Label(splash, text="", font=("Comic Sans", 20)) #vai carregar o Label no codigo, ele serve pra essas animçaõeszinhas pelo que vi, a fonte é a que ta ai e o tamanho 30
+    label.pack(expand=True) #aqui é só pra colocar o Label na tela e então coloca o bghl na preenchendo a tela toda e centraliza ele
+
+    def desfilar(i=0): #é aqui que a magica acontece, uuhuu
+        if i < 20: #o .after ali embaixo roda a cada 100 milisegundos, então, aqui define a animação durando 2 segundos
+            label.config(text=random.choice(["ᗜˬᗜ", "ᗜ˰ᗜ", "ദ്ദി ᗜˬᗜ✧", "ᗜ ̫ ᗜ", "ᗜ.ᗜ", "ᗜˬᗜ <(Funky)"]) * random.randint(3, 6)) #preenche o texto vazio do label e coloca as carinhas aleatoriamente com um limite de 3 a 6 vezes
+            splash.after(100, desfilar, i + 1) #aqui é onde eu limito o tempo de quanto tempo dura e deixo a animação em loop
+        else: #quando passa de 2 segundos a animação fecha e abre a tela inicial do diario
+            splash.destroy()
+            mostrar_janela_principal()
+
+    desfilar()
+
+
+
+def tremer_janela(janela): #tremer tela
+    x = janela.winfo_x()
+    y = janela.winfo_y()
+    dx = random.randint(-3, 3)
+    dy = random.randint(-3, 3)
+    janela.geometry(f"+{x+dx}+{y+dy}")
+    janela.after(50, lambda: tremer_janela(janela))
+
+
+
+def mostrar_janela_principal(): #a janela principal
+    global root #define que o root pode ser usado em outras funções, os botões
+    root = tk.Tk() #janela principal
+    root.title(f" Diário digital {fumo_face()}")
+    root.geometry("310x330+500+300") #tamanho e posição da janela
+    
+    tk.Button(root, text=f"{fumo_face()} Criar Diário", width=25, command=criar_diario).pack(pady=5)
+    tk.Button(root, text=f"{fumo_face()} Adicionar Entrada", width=25, command=adicionar_entrada).pack(pady=5)
+    tk.Button(root, text=f"{fumo_face()} Ler Diário", width=25, command=ler_diario).pack(pady=5)
+    tk.Button(root, text=f"{fumo_face()} Excluir Diário", width=25, command=excluir_diario).pack(pady=5)
+    tk.Button(root, text="Fechar Diário", width=25, command=root.quit).pack(pady=20)
+
+    #tremer_janela(root) #ativar apenas se eu quiser que o diario trema
+    root.mainloop()
+
+
+
+janela_inicial = tk.Tk() #retorna pra janela principal
+janela_inicial.withdraw()  # Esconde janela padrão
+mostrar_splash()
+janela_inicial.mainloop()
