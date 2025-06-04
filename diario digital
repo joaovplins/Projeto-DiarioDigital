@@ -1,108 +1,146 @@
-import os
+import sqlite3
 import random
 import datetime
 import tkinter as tk
 from tkinter import simpledialog, messagebox, scrolledtext
 
-DIARIO_NOME = "diario.txt"
+BANCO_NOME = "diario.db"
 
-def talvez_fumo():#isso aqui é engraçado, serve pra aleatorizar a palavra "fumo" aí ela aparece de vez em quando quando eu chamar a função
+def conectar_banco():
+    conn = sqlite3.connect(BANCO_NOME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS entradas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            datahora TEXT,
+            texto TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def talvez_fumo():
     return " fumo~" if random.choice([True, False]) else "fumofumo"
-
-def fumo_face():#mesma coisa só que com as carinhas
+#isso aqui é engraçado, serve pra aleatorizar a palavra "fumo" aí ela aparece de vez em quando quando eu chamar a função
+def fumo_face():
     return random.choice(["ᗜˬᗜ", "ദ്ദി ᗜˬᗜ✧", "ᗜ˰ᗜ"])
-
+#mesma coisa só que com as carinhas
 def obter_data_hora():
     agora = datetime.datetime.now()
     return agora.strftime("%d/%m/%Y %H:%M:%S")
 
-def criar_diario():
-    if os.path.exists(DIARIO_NOME):
-        messagebox.showinfo("Info", f"O diário já existe. {fumo_face()}{talvez_fumo()}")
-    else:
-        with open(DIARIO_NOME, "w", encoding="utf-8") as f:
-            f.write(f"== Diário iniciado em {obter_data_hora()} ==\n")
-        messagebox.showinfo("Sucesso", f"Diário criado com sucesso! {fumo_face()}{talvez_fumo()}")
-
 def adicionar_entrada():
-    if not os.path.exists(DIARIO_NOME):
-        messagebox.showerror("Erro", f"O diário não existe, bananão... {fumo_face()}{talvez_fumo()}")
-        return
     entrada = simpledialog.askstring("Nova Entrada", "O que deseja escrever?")
     if entrada:
-        with open(DIARIO_NOME, "a", encoding="utf-8") as f:
-            f.write(f"[{obter_data_hora()}] {entrada}\n")
+        conn = sqlite3.connect(BANCO_NOME)
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO entradas (datahora, texto) VALUES (?, ?)", (obter_data_hora(), entrada))
+        conn.commit()
+        conn.close()
         messagebox.showinfo("Salvo", f"Entrada anotada... {fumo_face()}{talvez_fumo()}")
 
 def ler_diario():
-    if not os.path.exists(DIARIO_NOME):
-        messagebox.showerror("Erro", f"O diário não existe, burrão... {fumo_face()}{talvez_fumo()}")
-        return
-    with open(DIARIO_NOME, "r", encoding="utf-8") as f:
-        conteudo = f.read()
+    conn = sqlite3.connect(BANCO_NOME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT datahora, texto FROM entradas ORDER BY id ASC")
+    entradas = cursor.fetchall()
+    conn.close()
+
+    conteudo = "\n".join([f"[{datahora}] {texto}" for datahora, texto in entradas])
+
     janela_leitura = tk.Toplevel(root)
-    janela_leitura.title(f"Diário Fumo {fumo_face()}")
+    janela_leitura.title(f"Diário Digital {fumo_face()}")
     texto = scrolledtext.ScrolledText(janela_leitura, wrap=tk.WORD, width=60, height=20)
-    texto.insert(tk.END, conteudo)
+    texto.insert(tk.END, conteudo if conteudo else "Nenhuma entrada encontrada... fumo triste ᗜ˰ᗜ")
     texto.config(state=tk.DISABLED)
     texto.pack(padx=10, pady=10)
 
+def editar_entrada():
+    conn = sqlite3.connect(BANCO_NOME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, datahora, texto FROM entradas ORDER BY id ASC")
+    entradas = cursor.fetchall()
+    conn.close()
+
+    if not entradas:
+        messagebox.showinfo(f"Editar Entrada {fumo_face()}", f"Nenhuma entrada encontrada... {fumo_face()} {talvez_fumo()}")
+        return
+
+    lista_opcoes = "\n".join([f"{id} - [{datahora}] {texto[:30]}..." for id, datahora, texto in entradas])
+
+    escolha = simpledialog.askstring(
+        f"Editar Entrada {fumo_face()}",
+        f"Escolha o ID da entrada que deseja editar {fumo_face()}:\n\n{lista_opcoes}\n\n(ID apenas)"
+    )
+
+    if escolha is None:
+        return  # Cancelado
+
+    try:
+        id_escolhido = int(escolha)
+    except ValueError:
+        messagebox.showerror("Erro", f"ID inválido... fumo triste {fumo_face()}")
+        return
+
+    ids_disponiveis = [id for id, _, _ in entradas]
+    if id_escolhido not in ids_disponiveis:
+        messagebox.showerror("Erro", f"ID não encontrado... {fumo_face()}")
+        return
+
+    novo_texto = simpledialog.askstring("Novo Texto", f"Digite o novo texto para a entrada {id_escolhido} {fumo_face()}")
+
+    if novo_texto:
+        conn = sqlite3.connect(BANCO_NOME)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE entradas SET texto = ? WHERE id = ?", (novo_texto, id_escolhido))
+        conn.commit()
+        conn.close()
+        messagebox.showinfo("Sucesso", f"Entrada atualizada com sucesso! {fumo_face()} {talvez_fumo()}")
+
 def excluir_diario():
-    if os.path.exists(DIARIO_NOME):
-        confirmacao = messagebox.askyesno("Confirmação", f"Deletar o diário? {fumo_face()}{talvez_fumo()}")
-        if confirmacao:
-            os.remove(DIARIO_NOME)
-            messagebox.showinfo("Deletado", f"Diário deletado com sucesso. {fumo_face()}")
-    else:
-        messagebox.showerror("Erro", f"Nada pra deletar! {fumo_face()}{talvez_fumo()}")
+    confirmacao = messagebox.askyesno("Confirmação", f"Deletar todas as entradas? {fumo_face()}{talvez_fumo()}")
+    if confirmacao:
+        conn = sqlite3.connect(BANCO_NOME)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM entradas")
+        conn.commit()
+        conn.close()
+        messagebox.showinfo("Deletado", f"Entradas deletadas com sucesso. {fumo_face()}")
 
-def mostrar_splash(): # a animação do inicio
-    splash = tk.Toplevel() #vai criar uma nova janela
-    splash.overrideredirect(True) #isso aqui serve pra retirar os botões e titulos da janela
-    splash.geometry("400x200+500+300") #os 400x200 é o tamanho da janela, e o +500+300 é a posição onde ele vai aparecer
-    label = tk.Label(splash, text="", font=("Comic Sans", 20)) #vai carregar o Label no codigo, ele serve pra essas animçaõeszinhas pelo que vi, a fonte é a que ta ai e o tamanho 30
-    label.pack(expand=True) #aqui é só pra colocar o Label na tela e então coloca o bghl na preenchendo a tela toda e centraliza ele
+def mostrar_splash(): #isso aqui serve pra girar a tela e fazer a animaçãozinha
+    splash = tk.Toplevel()
+    splash.overrideredirect(True)
+    splash.geometry("400x200+500+300")
+    label = tk.Label(splash, text="", font=("Comic Sans MS", 20))
+    label.pack(expand=True)
 
-    def desfilar(i=0): #é aqui que a magica acontece, uuhuu
-        if i < 20: #o .after ali embaixo roda a cada 100 milisegundos, então, aqui define a animação durando 2 segundos
-            label.config(text=random.choice(["ᗜˬᗜ", "ᗜ˰ᗜ", "ദ്ദി ᗜˬᗜ✧", "ᗜ ̫ ᗜ", "ᗜ.ᗜ", "ᗜˬᗜ <(Funky)"]) * random.randint(3, 6)) #preenche o texto vazio do label e coloca as carinhas aleatoriamente com um limite de 3 a 6 vezes
-            splash.after(100, desfilar, i + 1) #aqui é onde eu limito o tempo de quanto tempo dura e deixo a animação em loop
-        else: #quando passa de 2 segundos a animação fecha e abre a tela inicial do diario
+    def desfilar(i=0):
+        if i < 20:
+            label.config(text=random.choice(["ᗜˬᗜ", "ᗜ˰ᗜ", "ദ്ദി ᗜˬᗜ✧", "ᗜ ̫ ᗜ", "ᗜ.ᗜ", "ᗜˬᗜ <(Funky)"]) * random.randint(3, 6))
+            splash.after(100, desfilar, i + 1)
+        else:
             splash.destroy()
             mostrar_janela_principal()
 
     desfilar()
 
-
-
-def tremer_janela(janela): #tremer tela
-    x = janela.winfo_x()
-    y = janela.winfo_y()
-    dx = random.randint(-3, 3)
-    dy = random.randint(-3, 3)
-    janela.geometry(f"+{x+dx}+{y+dy}")
-    janela.after(50, lambda: tremer_janela(janela))
-
-
-
-def mostrar_janela_principal(): #a janela principal
-    global root #define que o root pode ser usado em outras funções, os botões
-    root = tk.Tk() #janela principal
+def mostrar_janela_principal():
+    conectar_banco()
+    global root
+    root.deiconify()  #a janela oculta
     root.title(f" Diário digital {fumo_face()}")
-    root.geometry("310x330+500+300") #tamanho e posição da janela
-    
-    tk.Button(root, text=f"{fumo_face()} Criar Diário", width=25, command=criar_diario).pack(pady=5)
-    tk.Button(root, text=f"{fumo_face()} Adicionar Entrada", width=25, command=adicionar_entrada).pack(pady=5)
-    tk.Button(root, text=f"{fumo_face()} Ler Diário", width=25, command=ler_diario).pack(pady=5)
-    tk.Button(root, text=f"{fumo_face()} Excluir Diário", width=25, command=excluir_diario).pack(pady=5)
-    tk.Button(root, text="Fechar Diário", width=25, command=root.quit).pack(pady=20)
+    root.geometry("500x500+500+200") 
 
-    #tremer_janela(root) #ativar apenas se eu quiser que o diario trema
-    root.mainloop()
+    tk.Button(root, text=f"{fumo_face()} Adicionar Entrada", width=35, height=2, command=adicionar_entrada).pack(pady=10)
+    tk.Button(root, text=f"{fumo_face()} Ler Diário", width=35, height=2, command=ler_diario).pack(pady=10)
+    tk.Button(root, text=f"{fumo_face()} Editar Entrada", width=35, height=2, command=editar_entrada).pack(pady=10)
+    tk.Button(root, text=f"{fumo_face()} Excluir Diário", width=35, height=2, command=excluir_diario).pack(pady=10)
+    tk.Button(root, text="Fechar Diário", width=35, height=2, command=root.quit).pack(pady=20)
 
 
+# INÍCIO DO PROGRAMA
+root = tk.Tk()
+root.withdraw()  # esconde a janela principal enquanto splash roda
 
-janela_inicial = tk.Tk() #retorna pra janela principal
-janela_inicial.withdraw()  # Esconde janela padrão
 mostrar_splash()
-janela_inicial.mainloop()
+root.mainloop()
